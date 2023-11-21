@@ -4,8 +4,7 @@ Scripts in Shell for DevOps Daily use
 ## ScaleObject Generator
 To use the script input in file the informations on fields:
 - mPATH_CD_FILES = Path to folders that contains the manifests;
-- m_NS = Squad or Team
-- Enter in folder `Kubernetes/Manifests/ScaleObjects/` and Exec the Script
+- Enter in folder `Kubernetes/Manifests/ScaleObjects/` and Exec the Script with parameter SQUAD
 ```bash
-./geraScaleObject.sh
+./geraScaleObject.sh <squad>
 ```

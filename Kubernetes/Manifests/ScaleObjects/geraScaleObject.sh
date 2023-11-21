@@ -48,7 +48,7 @@ done
 echo "SEMANTICAL COMMITS AND GITFLOW"
 echo " "
 echo "Gerando Texto para Branch: "
-echo -e "hotfix-AZDE-17042-Adjust-HPA-in-squad-$m_NS"
+echo -e "git checkout -b hotfix-AZDE-17042-Adjust-HPA-in-squad-$m_NS"
 echo " "
 echo "Gerando Mensagem de Commit: "
 echo -e "fix(devops): [AZDE-17042] - Adjust in ScaleObejcts for Squad $m_NS \n
