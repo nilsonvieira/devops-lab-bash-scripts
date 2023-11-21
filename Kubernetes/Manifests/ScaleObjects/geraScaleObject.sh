@@ -1,18 +1,17 @@
 #!/bin/bash
 
-m_NS="financeiro"
+m_NS=$1
 mPATH_CD_FILES="/Users/nilson/Workspace/Pulse/DevOps/cd-files/master/$m_NS"
 m_APP=$(ls $mPATH_CD_FILES | sort | grep rest |  grep -v .yml | grep -v applications | grep -v gateway | grep -v virtualservice | grep -v rabbitmq | sed 's/.*/&/;$!s/$/ /' | tr -d '\n')
 
 for i in $m_APP;
 do
-echo $i
 
 if [ -f "$mPATH_CD_FILES/$i/scaleobject.yaml" ]; then
 
     m_TEST_RABBIT="$(cat $mPATH_CD_FILES/$i/scaleobject.yaml | grep type | head -n1 | awk '{print $2}')"
-    echo -e "Starting Test on Scale Files"
     if [ $m_TEST_RABBIT == "rabbitmq" ]; then
+    echo -e "Starting Test on Scale Files with Type RabbitMQ"
     echo -e "O arquivo $mPATH_CD_FILES/$i/scaleobject.yaml can't be modified, your type is RABBIT"
     else 
     m_MAX=$(cat $mPATH_CD_FILES/$i/scaleobject.yaml | grep maxReplicaCount | awk '{print $2}')
