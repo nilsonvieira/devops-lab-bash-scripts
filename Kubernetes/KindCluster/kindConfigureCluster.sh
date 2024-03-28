@@ -1,3 +1,3 @@
 #!/bin/bash
 
-create cluster --config files/kindNodes.yaml --name k8s-kind-nitro
+kind create cluster --config files/KindNodes.yaml --name k8s-kind-nitro
