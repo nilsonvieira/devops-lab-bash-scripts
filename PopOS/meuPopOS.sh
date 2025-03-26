@@ -91,6 +91,39 @@ download_with_retry() {
     print_error "Falha no download após $max_retries tentativas"
     return 1
 }
+# Remover configurações e tentativas de instalação do Spotify
+remove_spotify_configs() {
+    print_status "Removendo configurações do Spotify..."
+    
+    # Remover repositório
+    rm -f /etc/apt/sources.list.d/spotify.list
+    rm -f /etc/apt/trusted.gpg.d/spotify.gpg
+
+    # Remover chaves GPG relacionadas
+    apt-key del 931FF8E79F0876134CC00E099B548F9F7E7A9BB9 2>&1 || true
+    apt-key del 7A3A762FAFD4A51F 2>&1 || true
+}
+
+# Remover configurações e tentativas de instalação do Insomnia
+remove_insomnia_configs() {
+    print_status "Removendo configurações do Insomnia..."
+    
+    # Remover repositório
+    rm -f /etc/apt/sources.list.d/insomnia.list
+    rm -f /etc/apt/trusted.gpg.d/insomnia.gpg
+
+    # Remover chaves GPG relacionadas
+    apt-key del 1A127079A92FAF90 2>&1 || true
+}
+
+# Função principal de limpeza
+clean_problematic_repos() {
+    remove_spotify_configs
+    remove_insomnia_configs
+
+    # Atualizar repositórios após remoção
+    apt update
+}
 
 # Função para instalação do Spotify
 install_spotify() {
@@ -268,7 +301,7 @@ fi
 # Limpar fontes conflitantes
 clean_conflicting_sources
 fix_docker_repository
-
+clean_problematic_repos
 # Atualizar repositórios
 print_status "Atualizando repositórios..."
 apt update
