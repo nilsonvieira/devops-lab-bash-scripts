@@ -59,7 +59,13 @@ check_status "btop"
 
 # Docker
 print_status "Instalando Docker Engine..."
+# Remover possíveis instalações antigas de chaves Docker
+rm -f /usr/share/keyrings/docker-archive-keyring.gpg
+
+# Adicionar chave GPG oficial do Docker
 curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+
+# Adicionar repositório stable
 echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
 apt update
 apt install -y docker-ce docker-ce-cli containerd.io
@@ -153,17 +159,19 @@ check_status "Spotify"
 # Termius (via pacote .deb)
 print_status "Instalando Termius..."
 wget -O /tmp/termius.deb "https://www.termius.com/download/linux/Termius.deb"
-dpkg -i /tmp/termius.deb
-apt --fix-broken install -y
+apt update
+apt install -y /tmp/termius.deb
 check_status "Termius"
 
 # JetBrains Toolbox (para instalar IntelliJ Ultimate, GoLand, PyCharm Professional)
 print_status "Instalando JetBrains Toolbox..."
-JETBRAINS_URL=$(curl -s "https://data.services.jetbrains.com/products/releases?code=TBA&latest=true&type=release" | grep -o "https://download.jetbrains.com/toolbox/jetbrains-toolbox-[0-9.]*.tar.gz")
+# Obter a URL de download mais recente corretamente
+JETBRAINS_URL=$(curl -s "https://data.services.jetbrains.com/products/releases?code=TBA&latest=true&type=release" | grep -Po 'https://download.jetbrains.com/toolbox/jetbrains-toolbox-[0-9.]+.tar.gz')
+print_status "Baixando JetBrains Toolbox de: $JETBRAINS_URL"
 wget -O /tmp/jetbrains-toolbox.tar.gz "$JETBRAINS_URL"
 mkdir -p /opt/jetbrains-toolbox
 tar -xzf /tmp/jetbrains-toolbox.tar.gz -C /opt/jetbrains-toolbox --strip-components=1
-ln -s /opt/jetbrains-toolbox/jetbrains-toolbox /usr/local/bin/jetbrains-toolbox
+ln -sf /opt/jetbrains-toolbox/jetbrains-toolbox /usr/local/bin/jetbrains-toolbox
 chown -R $SUDO_USER:$SUDO_USER /opt/jetbrains-toolbox
 check_status "JetBrains Toolbox"
 
