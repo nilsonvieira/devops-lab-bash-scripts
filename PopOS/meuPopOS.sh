@@ -92,43 +92,96 @@ download_with_retry() {
     return 1
 }
 
-# Função para lidar com instalação do Spotify
+# Função para instalação do Spotify
 install_spotify() {
-    print_status "Instalando Spotify..."
-    
-    # Limpar repositórios anteriores
+    # Verificar se já está instalado
+    if is_package_installed "spotify-client"; then
+        print_success "Spotify já está instalado. Pulando instalação."
+        return 0
+    fi
+
+    print_status "Preparando instalação do Spotify..."
+
+    # Limpar configurações anteriores
     rm -f /etc/apt/sources.list.d/spotify.list
     rm -f /etc/apt/trusted.gpg.d/spotify.gpg
+    apt-key del 931FF8E79F0876134CC00E099B548F9F7E7A9BB9 2>&1 || true
 
-    # Adicionar chave GPG diretamente com apt-key
-    curl -sS https://download.spotify.com/debian/pubkey_7A3A762FAFD4A51F.gpg | sudo apt-key add -
+    # Adicionar repositório com chave GPG atualizada
+    curl -sS https://download.spotify.com/debian/pubkey_7A3A762FAFD4A51F.gpg | gpg --dearmor | tee /etc/apt/trusted.gpg.d/spotify.gpg > /dev/null
 
     # Adicionar repositório
-    echo "deb http://repository.spotify.com stable non-free" | sudo tee /etc/apt/sources.list.d/spotify.list
+    echo "deb [signed-by=/etc/apt/trusted.gpg.d/spotify.gpg] http://repository.spotify.com stable non-free" | tee /etc/apt/sources.list.d/spotify.list
 
-    # Atualizar repositórios e instalar
+    # Atualizar repositórios
     apt update
+
+    # Tentar instalar
     apt install -y spotify-client
 
-    check_status "Spotify"
+    # Verificar instalação
+    if is_package_installed "spotify-client"; then
+        print_success "Spotify instalado com sucesso!"
+        return 0
+    else
+        print_error "Falha na instalação do Spotify. Tente instalar manualmente."
+        return 1
+    fi
 }
 
-# Função para lidar com instalação do Insomnia
+# Função para instalação do Insomnia
 install_insomnia() {
-    print_status "Instalando Insomnia..."
-    
-    # Limpar repositórios anteriores
+    # Verificar se já está instalado
+    if is_package_installed "insomnia"; then
+        print_success "Insomnia já está instalado. Pulando instalação."
+        return 0
+    fi
+
+    print_status "Preparando instalação do Insomnia..."
+
+    # Limpar configurações anteriores
     rm -f /etc/apt/sources.list.d/insomnia.list
     rm -f /etc/apt/trusted.gpg.d/insomnia.gpg
 
-    # Usar o repositório direto do Kong
-    echo "deb [trusted=yes] https://packages.konghq.com/public/insomnia/deb/pop jammy main" | sudo tee /etc/apt/sources.list.d/insomnia.list
+    # Adicionar chave GPG e repositório
+    curl -1sLf 'https://packages.konghq.com/public/insomnia/setup.deb.sh' | bash
 
-    # Atualizar repositórios e instalar
+    # Atualizar repositórios
     apt update
+
+    # Tentar instalar
     apt install -y insomnia
 
-    check_status "Insomnia"
+    # Verificar instalação
+    if is_package_installed "insomnia"; then
+        print_success "Insomnia instalado com sucesso!"
+        return 0
+    else
+        print_error "Falha na instalação do Insomnia. Tente instalar manualmente."
+        return 1
+    fi
+}
+# Função para corrigir repositórios Docker (considerando o aviso de deprecated)
+fix_docker_repository() {
+    print_status "Corrigindo repositório Docker..."
+
+    # Remover chave legada do trust.gpg
+    apt-key del 7EA0A9C3F7DD2A1F 2>&1 || true
+
+    # Limpar repositórios antigos
+    rm -f /etc/apt/sources.list.d/docker.list
+    rm -f /etc/apt/keyrings/docker.gpg
+
+    # Configurar repositório corretamente
+    install -m 0755 -d /etc/apt/keyrings
+    curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+    chmod a+r /etc/apt/keyrings/docker.gpg
+
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
+    tee /etc/apt/sources.list.d/docker.list > /dev/null
+
+    # Atualizar repositórios
+    apt update
 }
 
 # Função para instalar JetBrains Toolbox
@@ -214,6 +267,7 @@ fi
 
 # Limpar fontes conflitantes
 clean_conflicting_sources
+fix_docker_repository
 
 # Atualizar repositórios
 print_status "Atualizando repositórios..."
