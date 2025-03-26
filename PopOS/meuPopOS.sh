@@ -49,8 +49,13 @@ apt install -y apt-transport-https ca-certificates curl software-properties-comm
 
 # Instalação dos pacotes básicos
 print_status "Instalando pacotes básicos..."
-apt install -y flameshot remmina alacarte nmap netcat-openbsd wireguard openvpn
+apt install -y flameshot remmina alacarte nmap netcat-openbsd wireguard openvpn neofetch htop
 check_status "Pacotes básicos"
+
+# Instalação do btop (monitor de recursos avançado)
+print_status "Instalando btop..."
+apt install -y btop
+check_status "btop"
 
 # Docker
 print_status "Instalando Docker Engine..."
@@ -70,6 +75,13 @@ echo "deb [signed-by=/usr/share/keyrings/kubernetes-archive-keyring.gpg] https:/
 apt update
 apt install -y kubectl
 check_status "kubectl"
+
+# Lens (K8s Lens)
+print_status "Instalando K8s Lens..."
+wget -O /tmp/lens.deb "https://api.k8slens.dev/binaries/Lens-latest.deb"
+dpkg -i /tmp/lens.deb
+apt --fix-broken install -y
+check_status "K8s Lens"
 
 # VS Code
 print_status "Instalando Visual Studio Code..."
