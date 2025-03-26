@@ -24,17 +24,20 @@ print_error() {
 
 # Função para limpar repositórios conflitantes
 clean_conflicting_sources() {
-    # Remove arquivos de fonte duplicados ou conflitantes
+    # Remover repositórios problemáticos
+    rm -f /etc/apt/sources.list.d/kubernetes.list
     rm -f /etc/apt/sources.list.d/docker.list
+    rm -f /etc/apt/sources.list.d/spotify.list
     rm -f /etc/apt/sources.list.d/microsoft-edge.list
     rm -f /etc/apt/sources.list.d/vscode.list
-    rm -f /etc/apt/sources.list.d/hashicorp.list
-    rm -f /etc/apt/sources.list.d/spotify.list
+    rm -f /etc/apt/sources.list.d/insomnia.list
+
+    # Limpar chaves GPG antigas
+    rm -f /usr/share/keyrings/kubernetes-archive-keyring.gpg
     rm -f /usr/share/keyrings/docker-archive-keyring.gpg
-    rm -f /usr/share/keyrings/microsoft-archive-keyring.gpg
-    rm -f /usr/share/keyrings/microsoft-edge-keyring.gpg
-    rm -f /usr/share/keyrings/hashicorp-archive-keyring.gpg
     rm -f /usr/share/keyrings/spotify-archive-keyring.gpg
+    rm -f /usr/share/keyrings/microsoft-edge-keyring.gpg
+    rm -f /usr/share/keyrings/microsoft-archive-keyring.gpg
 }
 
 # Função para verificar se um pacote está instalado
@@ -92,23 +95,27 @@ done
 # Instalação do btop (monitor de recursos avançado)
 install_package_if_not_exists "btop"
 
-# Docker - Instalação robusta
+# Docker - Instalação robusta com repositório oficial
 if ! is_package_installed "docker-ce"; then
     print_status "Instalando Docker Engine..."
     # Remover possíveis instalações antigas
     apt-get remove -y docker docker-engine docker.io containerd runc
 
-    # Preparar repositório
-    mkdir -p /etc/apt/keyrings
+    # Preparar repositório Docker
+    install_package_if_not_exists "ca-certificates"
+    install_package_if_not_exists "curl"
+    install_package_if_not_exists "gnupg"
+
+    install -m 0755 -d /etc/apt/keyrings
     curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
     chmod a+r /etc/apt/keyrings/docker.gpg
 
-    # Configurar repositório
-    echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
+    tee /etc/apt/sources.list.d/docker.list > /dev/null
 
-    # Atualizar e instalar
     apt update
     apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+    
     systemctl enable docker
     systemctl start docker
     usermod -aG docker $SUDO_USER
@@ -117,11 +124,16 @@ else
     print_success "Docker Engine já está instalado. Pulando instalação."
 fi
 
-# kubectl
+# Kubectl (usando repositório direto no Google Cloud)
 if ! command -v kubectl &> /dev/null; then
     print_status "Instalando kubectl..."
-    curl -fsSL https://packages.cloud.google.com/apt/doc/apt-key.gpg | gpg --dearmor -o /usr/share/keyrings/kubernetes-archive-keyring.gpg
-    echo "deb [signed-by=/usr/share/keyrings/kubernetes-archive-keyring.gpg] https://apt.kubernetes.io/ kubernetes-xenial main" | tee /etc/apt/sources.list.d/kubernetes.list
+    curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.29/deb/Release.key | gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+    chmod 644 /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+
+    echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.29/deb/ /' | \
+    tee /etc/apt/sources.list.d/kubernetes.list
+    
+    chmod 644 /etc/apt/sources.list.d/kubernetes.list
     apt update
     apt install -y kubectl
     check_status "kubectl"
@@ -129,7 +141,7 @@ else
     print_success "kubectl já está instalado. Pulando instalação."
 fi
 
-# VS Code
+# VS Code - Instalação a partir do repositório oficial da Microsoft
 if ! is_package_installed "code"; then
     print_status "Instalando Visual Studio Code..."
     wget -qO- https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > /etc/apt/trusted.gpg.d/microsoft.gpg
@@ -153,10 +165,11 @@ else
     print_success "Microsoft Edge já está instalado. Pulando instalação."
 fi
 
-# HashiCorp
+# HashiCorp (Vagrant, Vault, Terraform)
 if ! is_package_installed "vagrant" || ! is_package_installed "vault" || ! is_package_installed "terraform"; then
     print_status "Instalando produtos HashiCorp..."
     wget -O- https://apt.releases.hashicorp.com/gpg | gpg --dearmor | tee /etc/apt/trusted.gpg.d/hashicorp.gpg
+    chmod 644 /etc/apt/trusted.gpg.d/hashicorp.gpg
     echo "deb [signed-by=/etc/apt/trusted.gpg.d/hashicorp.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | tee /etc/apt/sources.list.d/hashicorp.list
     apt update
     apt install -y vagrant vault terraform
@@ -165,39 +178,51 @@ else
     print_success "Produtos HashiCorp já estão instalados. Pulando instalação."
 fi
 
-# Spotify
+# Spotify (com tratamento adicional)
 if ! is_package_installed "spotify-client"; then
     print_status "Instalando Spotify..."
-    curl -sS https://download.spotify.com/debian/pubkey_6224F9941A8AA6D1.gpg | gpg --dearmor | tee /etc/apt/trusted.gpg.d/spotify.gpg >/dev/null
+    curl -sS https://download.spotify.com/debian/pubkey_6224F9941A8AA6D1.gpg | gpg --dearmor | tee /etc/apt/trusted.gpg.d/spotify.gpg > /dev/null
     echo "deb [signed-by=/etc/apt/trusted.gpg.d/spotify.gpg] http://repository.spotify.com stable non-free" | tee /etc/apt/sources.list.d/spotify.list
     apt update
-    apt install -y spotify-client
+    apt install -y spotify-client || print_error "Falha ao instalar Spotify. Tente manualmente."
     check_status "Spotify"
 else
     print_success "Spotify já está instalado. Pulando instalação."
 fi
 
-# Insomnia
+# Insomnia (com repositório alternativo)
 if ! is_package_installed "insomnia"; then
     print_status "Instalando Insomnia..."
     curl -1sLf 'https://packages.konghq.com/public/insomnia/setup.deb.sh' | bash
     apt update
-    apt install -y insomnia
+    apt install -y insomnia || print_error "Falha ao instalar Insomnia. Tente manualmente."
     check_status "Insomnia"
 else
     print_success "Insomnia já está instalado. Pulando instalação."
 fi
 
-# Outros pacotes de instalação via .deb
-TERMIUS_URL="https://autoupdate.termius.com/linux/Termius.deb"
-if ! is_package_installed "termius-app"; then
-    print_status "Instalando Termius..."
-    wget -O /tmp/Termius.deb "$TERMIUS_URL"
-    dpkg -i /tmp/Termius.deb
-    apt --fix-broken install -y
-    check_status "Termius"
+# JetBrains Toolbox
+if [ ! -f "/usr/local/bin/jetbrains-toolbox" ]; then
+    print_status "Instalando JetBrains Toolbox..."
+    # Obter a URL de download mais recente corretamente
+    JETBRAINS_URL=$(curl -s "https://data.services.jetbrains.com/products/releases?code=TBA&latest=true&type=release" | grep -Po 'https://download.jetbrains.com/toolbox/jetbrains-toolbox-[0-9.]+.tar.gz')
+    print_status "Baixando JetBrains Toolbox de: $JETBRAINS_URL"
+    wget -O /tmp/jetbrains-toolbox.tar.gz "$JETBRAINS_URL"
+    
+    # Criar diretório de instalação
+    mkdir -p /opt/jetbrains-toolbox
+    tar -xzf /tmp/jetbrains-toolbox.tar.gz -C /opt/jetbrains-toolbox --strip-components=1
+    
+    # Criar link simbólico
+    ln -sf /opt/jetbrains-toolbox/jetbrains-toolbox /usr/local/bin/jetbrains-toolbox
+    
+    # Corrigir permissões
+    chown -R $SUDO_USER:$SUDO_USER /opt/jetbrains-toolbox
+    chmod +x /opt/jetbrains-toolbox/jetbrains-toolbox
+    
+    check_status "JetBrains Toolbox"
 else
-    print_success "Termius já está instalado. Pulando instalação."
+    print_success "JetBrains Toolbox já está instalado. Pulando instalação."
 fi
 
 # Limpeza final
