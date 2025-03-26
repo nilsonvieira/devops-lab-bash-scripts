@@ -135,10 +135,12 @@ install_insomnia() {
 install_jetbrains_toolbox() {
     print_status "Instalando JetBrains Toolbox..."
 
-    # URLs de backup caso a URL principal falhe
+    # URLs de backup com versões específicas
     local toolbox_urls=(
         "https://download.jetbrains.com/toolbox/jetbrains-toolbox-2.5.4.38621.tar.gz"
         "https://download-cdn.jetbrains.com/toolbox/jetbrains-toolbox-2.5.4.38621.tar.gz"
+        "https://download.jetbrains.com/toolbox/jetbrains-toolbox-2.3.14.182.tar.gz"
+        "https://download-cdn.jetbrains.com/toolbox/jetbrains-toolbox-2.3.14.182.tar.gz"
     )
 
     local download_success=false
@@ -146,28 +148,55 @@ install_jetbrains_toolbox() {
 
     # Tentar baixar de diferentes URLs
     for url in "${toolbox_urls[@]}"; do
-        if download_with_retry "$url" "$toolbox_tarball"; then
-            download_success=true
-            break
+        print_status "Tentando baixar de: $url"
+        
+        # Usar wget com opções mais robustas
+        if wget --no-check-certificate \
+                --tries=3 \
+                --timeout=30 \
+                --retry-connrefused \
+                --continue \
+                -O "$toolbox_tarball" \
+                "$url"; then
+            
+            # Verificar se o arquivo foi baixado corretamente
+            if [ -s "$toolbox_tarball" ]; then
+                download_success=true
+                break
+            else
+                print_error "Arquivo baixado está vazio: $url"
+            fi
+        else
+            print_error "Falha ao baixar: $url"
         fi
     done
 
     if [ "$download_success" = false ]; then
-        print_error "Falha ao baixar JetBrains Toolbox"
+        print_error "Não foi possível baixar o JetBrains Toolbox"
         return 1
     fi
 
-    # Criar diretório de instalação
+    # Criar diretório de instalação com limpeza prévia
+    rm -rf /opt/jetbrains-toolbox
     mkdir -p /opt/jetbrains-toolbox
 
-    # Extrair
+    # Extrair com verificação de integridade
     if tar -xzf "$toolbox_tarball" -C /opt/jetbrains-toolbox --strip-components=1; then
+        # Encontrar o executável corretamente
+        local toolbox_executable
+        toolbox_executable=$(find /opt/jetbrains-toolbox -type f -name "jetbrains-toolbox" | head -n 1)
+
+        if [ -z "$toolbox_executable" ]; then
+            print_error "Executável do JetBrains Toolbox não encontrado"
+            return 1
+        fi
+
         # Criar link simbólico
-        ln -sf /opt/jetbrains-toolbox/jetbrains-toolbox /usr/local/bin/jetbrains-toolbox
+        ln -sf "$toolbox_executable" /usr/local/bin/jetbrains-toolbox
 
         # Corrigir permissões
         chown -R "$SUDO_USER:$SUDO_USER" /opt/jetbrains-toolbox
-        chmod +x /opt/jetbrains-toolbox/jetbrains-toolbox
+        chmod +x "$toolbox_executable"
 
         check_status "JetBrains Toolbox"
     else
