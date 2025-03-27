@@ -155,16 +155,28 @@ download_with_retry() {
 fix_docker_repository() {
     print_status "Corrigindo repositório Docker..."
 
-    # Limpar repositórios antigos
+    # Remover configurações antigas e conflitantes
     rm -f /etc/apt/sources.list.d/docker.list
     rm -f /etc/apt/keyrings/docker.gpg
+    rm -f /usr/share/keyrings/docker-archive-keyring.gpg
 
-    # Configurar repositório corretamente
-    install -m 0755 -d /etc/apt/keyrings
+    # Remover entradas existentes no sources.list
+    sed -i '/download\.docker\.com/d' /etc/apt/sources.list
+    sed -i '/download\.docker\.com/d' /etc/apt/sources.list.d/*
+
+    # Criar diretório para chaves se não existir
+    mkdir -p /etc/apt/keyrings
+
+    # Baixar e adicionar chave GPG
     curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
     chmod a+r /etc/apt/keyrings/docker.gpg
 
-    echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
+    # Obter o nome do sistema operacional e versão
+    local os_codename
+    os_codename=$(. /etc/os-release && echo "$VERSION_CODENAME")
+
+    # Adicionar repositório com configuração limpa
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $os_codename stable" | \
     tee /etc/apt/sources.list.d/docker.list > /dev/null
 
     # Atualizar repositórios
